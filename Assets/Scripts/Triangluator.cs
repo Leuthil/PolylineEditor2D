@@ -1,7 +1,8 @@
 ﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-namespace Examples_Simple2DTerrainEditor
+
+namespace LinguineGames.Util.PolylineEditor2D
 {
     public class Triangulator
     {
