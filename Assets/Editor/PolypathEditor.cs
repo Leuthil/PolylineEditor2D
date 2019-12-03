@@ -7,51 +7,30 @@ namespace LinguineGames.Util.PolylineEditor2D
     [CustomEditor(typeof(Polypath))]
     public class PolypathEditor : PolylineEditor
     {
-        protected override void OnEnable()
+        protected override void DrawPolyLine(Vector3[] nodes, Color color)
         {
-            base.OnEnable();
+            base.DrawPolyLine(nodes, color);
+
+            // draw line between last node and first node to make it a path
+            Color previousColor = Handles.color;
+            Handles.color = color;
+            Handles.DrawPolyLine(new Vector3[] { nodes[nodes.Length - 1], nodes[0] });
+            Handles.color = previousColor;
         }
 
-        protected override void OnSceneGUI()
+        protected override void RemoveNode(Polyline polyline, int indexToDelete)
         {
-            base.OnSceneGUI();
-        }
-
-        private void UpdateTerrain(Vector3[] localPoints)
-        {
-            return;
-
-            if (localPoints.Length < 3)
+            if (polyline.Nodes.Count <= 3)
             {
                 return;
             }
 
-            List<Vector3> vertices = new List<Vector3>(localPoints);
-            Triangulator triangulator = new Triangulator(vertices.ToArray());
-            int[] indecies = triangulator.Triangulate();
-            Polypath terrain = target as Polypath;
-            MeshFilter meshFilter = terrain.GetComponent<MeshFilter>();
-            Mesh mesh = meshFilter.sharedMesh;
-
-            mesh.triangles = null;
-            mesh.vertices = vertices.ToArray();
-            mesh.triangles = indecies;
-            mesh.uv = Vec3ToVec2Array(vertices.ToArray());
-
-            PolygonCollider2D collider = terrain.GetComponent<PolygonCollider2D>();
-            collider.points = Vec3ToVec2Array(vertices.ToArray());
+            base.RemoveNode(polyline, indexToDelete);
         }
 
-        private Vector2[] Vec3ToVec2Array(Vector3[] data)
+        protected override int FindNodeIndex(Vector3[] worldNodesPositions, Vector3 newNode)
         {
-            Vector2[] result = new Vector2[data.Length];
-            
-            for (int i = 0; i < data.Length; i++)
-            {
-                result[i] = data[i];
-            }
-
-            return result;
+            return base.FindNodeIndex(new List<Vector3>(worldNodesPositions) { worldNodesPositions[0] }.ToArray(), newNode);
         }
     }
 }

@@ -7,22 +7,29 @@ namespace LinguineGames.Util.PolylineEditor2D
     [CustomEditor(typeof(Polyline))]
     public class PolylineEditor : Editor
     {
-        protected Texture nodeTexture;
-        protected GUIStyle handleStyle = new GUIStyle();
-        protected bool nodeBeingDragged = false;
+        protected Texture m_nodeTexture;
+        protected GUIStyle m_handleStyle = new GUIStyle();
+        protected bool m_nodeBeingDragged = false;
 
         protected virtual void OnEnable()
         {
-            nodeTexture = Resources.Load<Texture>("PolylineEditor2DHandle");
+            m_nodeTexture = Resources.Load<Texture>("PolylineEditor2DHandle");
             
-            if (nodeTexture == null)
+            if (m_nodeTexture == null)
             {
-                nodeTexture = EditorGUIUtility.whiteTexture;
+                m_nodeTexture = EditorGUIUtility.whiteTexture;
             }
 
-            handleStyle.alignment = TextAnchor.MiddleCenter;
-            handleStyle.fixedWidth = 15;
-            handleStyle.fixedHeight = 15;
+            m_handleStyle.alignment = TextAnchor.MiddleCenter;
+            m_handleStyle.fixedWidth = 15;
+            m_handleStyle.fixedHeight = 15;
+
+            Polyline polyline = (target as Polyline);
+    
+            if (polyline.Nodes == null)
+            {
+                polyline.InitializeNodes();
+            }
         }
 
         protected virtual void OnSceneGUI()
@@ -40,14 +47,14 @@ namespace LinguineGames.Util.PolylineEditor2D
                 return;
             }
 
-            if (nodeBeingDragged && Event.current.type == EventType.MouseUp && Event.current.button == 0)
+            if (m_nodeBeingDragged && Event.current.type == EventType.MouseUp && Event.current.button == 0)
             {
-                nodeBeingDragged = false;
+                m_nodeBeingDragged = false;
             }
 
             Polyline polyline = (target as Polyline);
-            Vector3[] localPoints = polyline.nodes.ToArray();
-            Vector3[] worldPoints = new Vector3[polyline.nodes.Count];
+            Vector3[] localPoints = polyline.Nodes.ToArray();
+            Vector3[] worldPoints = new Vector3[polyline.Nodes.Count];
 
             for (int i = 0; i < worldPoints.Length; i++)
             {
@@ -57,9 +64,8 @@ namespace LinguineGames.Util.PolylineEditor2D
             DrawPolyLine(worldPoints);
             DrawNodes(polyline, worldPoints);
 
-            if (!nodeBeingDragged && Event.current.shift)
+            if (!m_nodeBeingDragged && Event.current.shift)
             {
-                //Adding Points
                 Vector3 mousePos = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition).origin;
                 Vector3 polyLocalMousePos = polyline.transform.InverseTransformPoint(mousePos);
                 Vector3 nodeOnPoly = HandleUtility.ClosestPointToPolyLine(worldPoints);
@@ -68,34 +74,45 @@ namespace LinguineGames.Util.PolylineEditor2D
 
                 Handles.color = Color.green;
                 Handles.DrawLine(worldPoints[nodeIndex - 1], mousePos);
-                Handles.DrawLine(worldPoints[nodeIndex], mousePos);
+                Handles.DrawLine(worldPoints[nodeIndex % worldPoints.Length], mousePos);
                 Handles.color = Color.white;
 
                 if (Handles.Button(mousePos, Quaternion.identity, handleSize * 0.1f, handleSize, AddPolylineNodeHandleCap))
                 {
-                    polyLocalMousePos.z = 0;
-                    Undo.RecordObject(polyline, "Insert Node");
-                    polyline.nodes.Insert(nodeIndex, polyLocalMousePos);
+                    InsertNode(polyline, polyLocalMousePos, nodeIndex);
                     Event.current.Use();
                 }
             }
-            else if (!nodeBeingDragged && Event.current.control)
+            else if (!m_nodeBeingDragged && Event.current.control)
             {
-                //Deleting Points
                 int indexToDelete = FindNearestNodeToMouse(worldPoints);
                 Handles.color = Color.red;
                 float handleSize = HandleUtility.GetHandleSize(worldPoints[0]);
 
                 if (Handles.Button(worldPoints[indexToDelete], Quaternion.identity, handleSize * 0.1f, handleSize, DeletePolylineNodeHandleCap))
                 {
-                    Undo.RecordObject(polyline, "Remove Node");
-                    polyline.nodes.RemoveAt(indexToDelete);
-                    indexToDelete = -1;
+                    if (polyline.Nodes.Count > 2)
+                    {
+                        RemoveNode(polyline, indexToDelete);
+                    }
+
                     Event.current.Use();
                 }
 
                 Handles.color = Color.white;
             }
+        }
+
+        protected virtual void InsertNode(Polyline polyline, Vector2 polyLocalMousePos, int nodeIndex)
+        {
+            Undo.RecordObject(polyline, "Insert Node");
+            polyline.Nodes.Insert(nodeIndex, polyLocalMousePos);
+        }
+
+        protected virtual void RemoveNode(Polyline polyline, int indexToDelete)
+        {
+            Undo.RecordObject(polyline, "Remove Node");
+            polyline.Nodes.RemoveAt(indexToDelete);
         }
 
         protected virtual int FindNearestNodeToMouse(Vector3[] worldNodesPositions)
@@ -122,17 +139,17 @@ namespace LinguineGames.Util.PolylineEditor2D
 
         protected virtual int FindNodeIndex(Vector3[] worldNodesPositions, Vector3 newNode)
         {
-            float smallestdis = float.MaxValue;
+            float smallestDist = float.MaxValue;
             int prevIndex = 0;
 
             for (int i = 1; i < worldNodesPositions.Length; i++)
             {
                 float distance = HandleUtility.DistanceToPolyLine(worldNodesPositions[i - 1], worldNodesPositions[i]);
 
-                if (distance < smallestdis)
+                if (distance < smallestDist)
                 {
                     prevIndex = i - 1;
-                    smallestdis = distance;
+                    smallestDist = distance;
                 }
             }
 
@@ -154,9 +171,9 @@ namespace LinguineGames.Util.PolylineEditor2D
 
         protected virtual void DrawNodes(Polyline polyline, Vector3[] worldPoints)
         {
-            for (int i = 0; i < polyline.nodes.Count; i++)
+            for (int i = 0; i < polyline.Nodes.Count; i++)
             {
-                Vector3 pos = polyline.transform.TransformPoint(polyline.nodes[i]);
+                Vector3 pos = polyline.transform.TransformPoint(polyline.Nodes[i]);
                 float handleSize = HandleUtility.GetHandleSize(pos);
                 EditorGUI.BeginChangeCheck();
                 Vector3 newPos = Handles.FreeMoveHandle(pos, Quaternion.identity, handleSize * 0.09f, Vector3.one, PolylineNodeHandleCap);
@@ -164,7 +181,7 @@ namespace LinguineGames.Util.PolylineEditor2D
 
                 if (EditorGUI.EndChangeCheck())
                 {
-                    nodeBeingDragged = true;
+                    m_nodeBeingDragged = true;
 
                     if (CheckAlignment(worldPoints, handleSize * 0.1f, i, ref newPos, out alignTo))
                     {
@@ -179,7 +196,7 @@ namespace LinguineGames.Util.PolylineEditor2D
                     }
 
                     Undo.RecordObject(polyline, "Move Node");
-                    polyline.nodes[i] = polyline.transform.InverseTransformPoint(newPos);
+                    polyline.Nodes[i] = polyline.transform.InverseTransformPoint(newPos);
 
                     Event.current.Use();
                 }
@@ -191,7 +208,7 @@ namespace LinguineGames.Util.PolylineEditor2D
             //check vertical
             //check with the prev node
             bool aligned = false;
-            //the node can be aligned to the prev and next node at once, we need to return more than one alginedTo Node
+            //the node can be aligned to the prev and next node at once, we need to return more than one alignedTo Node
             alignedTo = new List<Vector3>(2);
 
             if (index > 0)
@@ -245,9 +262,6 @@ namespace LinguineGames.Util.PolylineEditor2D
                 }
             }
 
-            //check straight lines
-            //To be implemented
-
             return aligned;
         }
 
@@ -274,7 +288,7 @@ namespace LinguineGames.Util.PolylineEditor2D
                 GUI.color = Color.green;
             }
 
-            Handles.Label(position, new GUIContent(nodeTexture), handleStyle);
+            Handles.Label(position, new GUIContent(m_nodeTexture), m_handleStyle);
             GUI.color = Color.white;
         }
 
@@ -293,7 +307,7 @@ namespace LinguineGames.Util.PolylineEditor2D
             }
 
             GUI.color = Color.green;
-            Handles.Label(position, new GUIContent(nodeTexture), handleStyle);
+            Handles.Label(position, new GUIContent(m_nodeTexture), m_handleStyle);
             GUI.color = Color.white;
         }
 
@@ -312,7 +326,7 @@ namespace LinguineGames.Util.PolylineEditor2D
             }
 
             GUI.color = Color.red;
-            Handles.Label(position, new GUIContent(nodeTexture), handleStyle);
+            Handles.Label(position, new GUIContent(m_nodeTexture), m_handleStyle);
             GUI.color = Color.white;
         }
     }
