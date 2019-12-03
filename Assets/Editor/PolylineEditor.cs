@@ -205,61 +205,54 @@ namespace LinguineGames.Util.PolylineEditor2D
 
         protected virtual bool CheckAlignment(Vector3[] worldNodes, float offset, int index, ref Vector3 position, out List<Vector3> alignedTo)
         {
-            //check vertical
-            //check with the prev node
+            int prevIndex = (index - 1 + worldNodes.Length) % worldNodes.Length;
+            int nextIndex = (index + 1) % worldNodes.Length;
             bool aligned = false;
+
             //the node can be aligned to the prev and next node at once, we need to return more than one alignedTo Node
             alignedTo = new List<Vector3>(2);
 
-            if (index > 0)
-            {
-                float dx = Mathf.Abs(worldNodes[index - 1].x - position.x);
+            float dx;
+            float dy;
 
-                if (dx < offset)
-                {
-                    position.x = worldNodes[index - 1].x;
-                    alignedTo.Add(worldNodes[index - 1]);
-                    aligned = true;
-                }
+            // check vertical based on previous node
+            dx = Mathf.Abs(worldNodes[prevIndex].x - position.x);
+
+            if (dx < offset)
+            {
+                position.x = worldNodes[prevIndex].x;
+                alignedTo.Add(worldNodes[prevIndex]);
+                aligned = true;
             }
 
-            //check with the next node
-            if (index < worldNodes.Length - 1)
-            {
-                float dx = Mathf.Abs(worldNodes[index + 1].x - position.x);
+            // check vertical based on next node
+            dx = Mathf.Abs(worldNodes[nextIndex].x - position.x);
 
-                if (dx < offset)
-                {
-                    position.x = worldNodes[index + 1].x;
-                    alignedTo.Add(worldNodes[index + 1]);
-                    aligned = true;
-                }
+            if (dx < offset)
+            {
+                position.x = worldNodes[nextIndex].x;
+                alignedTo.Add(worldNodes[nextIndex]);
+                aligned = true;
             }
 
-            //check horizontal
-            if (index > 0)
-            {
-                float dy = Mathf.Abs(worldNodes[index - 1].y - position.y);
+            // check horizontal based on previous node
+            dy = Mathf.Abs(worldNodes[prevIndex].y - position.y);
 
-                if (dy < offset)
-                {
-                    position.y = worldNodes[index - 1].y;
-                    alignedTo.Add(worldNodes[index - 1]);
-                    aligned = true;
-                }
+            if (dy < offset)
+            {
+                position.y = worldNodes[prevIndex].y;
+                alignedTo.Add(worldNodes[prevIndex]);
+                aligned = true;
             }
 
-            //check with the next node
-            if (index < worldNodes.Length - 1)
-            {
-                float dy = Mathf.Abs(worldNodes[index + 1].y - position.y);
+            // check horizontal based on next node
+            dy = Mathf.Abs(worldNodes[nextIndex].y - position.y);
 
-                if (dy < offset)
-                {
-                    position.y = worldNodes[index + 1].y;
-                    alignedTo.Add(worldNodes[index + 1]);
-                    aligned = true;
-                }
+            if (dy < offset)
+            {
+                position.y = worldNodes[nextIndex].y;
+                alignedTo.Add(worldNodes[nextIndex]);
+                aligned = true;
             }
 
             return aligned;
